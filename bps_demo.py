@@ -17,17 +17,14 @@ from scipy.signal import chirp, spectrogram
 from scipy.fft import fftshift
 from nicegui import ui
 
-
-labels = { 1000: 'AA', 4000: 'BB' }
-
 font = {'family': 'consolas',
         'color':  'black',
         'weight': 'normal',
         'size': 9,
         }
 
-def calc_noise(npsd, fs):    
-    return 10**(npsd/10)*fs
+def noise_power(npsd, fs):    
+    return np.sqrt(10**(npsd/10)*fs)
 
 def calc_valid_ranges (Fc, Bw):
     M = 1    
@@ -59,11 +56,11 @@ check_in_range = lambda x,r: any(lower <= x <= upper for (lower, upper) in r)
 clr_dict = {True: 'limegreen', False: 'r'}
 
 class BandpassApp():
-    def __init__(self, fc=3500, bw=1000, dur=10, ns=0.1):
+    def __init__(self, fc=3500, bw=1000, dur=10, npsd=-60):
         self.fc = fc # RF carrier freq, Hz
         self.bw = bw # Signal bandwidth, Hz
         self.dur = dur # seconds
-        self.ns = ns 
+        self.npsd = npsd 
         self.fu = fc + bw/2
         self.fl = fc - bw/2
         self.line1 = None
@@ -71,10 +68,8 @@ class BandpassApp():
         self.axvline1 = None
         self.axvline2 = None
         self.base_fs = self.fu*4
-        self.base_ff, self.base_psd  = self.get_psd(self.base_fs)
-        
-        self.ranges = calc_valid_ranges(fc, bw)
-        
+        self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
+        self.ranges = calc_valid_ranges(fc, bw)        
         self.setup()
 
     def get_psd(self, fs, nfft=512, noverlap=384):
@@ -82,11 +77,11 @@ class BandpassApp():
         y1 = chirp(t, f0=self.fl, f1=self.fc, t1=t[-1], method='hyperbolic')
         y2 = 0.50*chirp(t, f0=self.fc, f1=self.fu, t1=t[-1], method='linear')
         y = y1 + y2
-        y = y + np.random.randn(np.size(y))*self.ns
+        y = y + np.random.randn(np.size(y))*noise_power(self.npsd, fs)
         _,_,sxx = spectrogram(y,fs=fs,nperseg=nfft,noverlap=noverlap,nfft=nfft,mode='psd',return_onesided=False,window='hann',detrend=None) 
         ff = np.linspace(-fs/2, fs/2, nfft)
         Pdb = fftshift(10*np.log10(np.mean(sxx,axis=1)))
-        return (ff,Pdb)
+        return (ff, Pdb)
     
     def setup(self):
         zone_str, zone_labels = build_str(self.ranges)
@@ -97,8 +92,7 @@ class BandpassApp():
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;')
                 self.main_plot = ui.pyplot(figsize=(9, 5))
                 with self.main_plot:
-                    self.main_plot.fig.patch.set_alpha(0)
-                    
+                    self.main_plot.fig.patch.set_alpha(0)                    
                     self.line1, = plt.plot(self.base_ff,self.base_psd, color='k')
                     self.line2, = plt.plot(ff,Pdb,color=clr_dict[check_in_range(self.fu*2,self.ranges)])          
                     self.axvline1 = plt.axvline( self.base_fs/2, linestyle='--', color='grey', alpha=0.60)
