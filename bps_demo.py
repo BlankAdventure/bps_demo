@@ -38,15 +38,15 @@ def calc_valid_ranges (Fs, Fc, Bw):
     return ranges
 
 def build_str(ranges):
-    mystr = 'ALIAS-FREE REGIONS (FS)\n'
+    mystr = '--ALIAS-FREE REGIONS (FS)--\n'
     label_dict = {}
     for idx, entry in enumerate(ranges):
         U,L = entry
         if idx == 0:
-            mystr = mystr + f'Oversampled: {U:.0f}+ [Hz]\n'
+            mystr = mystr + f' Oversampled: {U:.0f}+ [Hz]\n'
             label_dict[int(U)] = 'OS'
         else:
-            mystr = mystr + f'Zone {idx}: {U:.0f} to {L:.0f} [Hz]\n'
+            mystr = mystr + f' Zone {idx}: {U:.0f} to {L:.0f} [Hz]\n'
             label_dict[int(U)] = f'Z{idx}'
             label_dict[int(L)] = f'Z{idx}'
     return mystr, label_dict
@@ -67,12 +67,13 @@ class BandpassApp():
         self.line2 = None
         self.axvline1 = None
         self.axvline2 = None
-        self.min_fs = 1000
-        self.base_fs = self.fu*4
+        self.min_fs = bw*2
+        self.base_fs = self.fu*3
         self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
         self.ranges = calc_valid_ranges(self.base_fs, fc, bw)        
-        self.setup()
+        print(self.ranges)
 
+        self.setup()
     def get_psd(self, fs, nfft=512, noverlap=384):
         t = np.arange(0, self.dur, 1/fs)  
         y1 = chirp(t, f0=self.fl, f1=self.fc, t1=t[-1], method='hyperbolic')
@@ -90,7 +91,7 @@ class BandpassApp():
         with ui.card().classes('bg-yellow-50'):
             with ui.column().classes('gap-0'): #items-center
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;').classes('w-full text-center')
-                ui.label(f'(fc={self.fc} Hz | BW={self.bw} Hz)').style('font-size: 90%; font-weight: normal;').classes('w-full text-center')
+                ui.label(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)').style('font-size: 90%; font-weight: normal;').classes('w-full text-center')
                 self.main_plot = ui.pyplot(figsize=(9, 5))
                 with self.main_plot:
                     self.main_plot.fig.patch.set_alpha(0)                    
@@ -112,11 +113,11 @@ class BandpassApp():
                     self.main_plot.fig.tight_layout()
                 
                 # Plot annotation of aliasinsg zones
-                ui.label(zone_str).style("position: absolute; top: 13%; left: 12%; white-space: pre-line; font-size: 90%; font-weight: 500;")
+                ui.label(zone_str).classes('bg-gray-50').style("position: absolute; top: 13%; left: 12%; white-space: pre; font-size: 85%; font-weight: 500; border: 1px solid; padding: 3px;")
 
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
-                ui.slider(min=self.min_fs, max=self.base_fs, step=10, value=self.base_fs).props('label-always') \
+                ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
                     .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-full').props()
                 
                 # Setup the indicator bar
