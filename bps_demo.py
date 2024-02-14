@@ -91,7 +91,6 @@ class BandpassApp():
             with ui.column().classes('items-center'):
                 ui.separator()
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;')
-                #ui.label('(fc=3500 Hz | BW=1000 Hz)').style('font-size: 100%;')
                 ui.separator()
                 self.main_plot = ui.pyplot(figsize=(9, 5))
                 with self.main_plot:
@@ -113,18 +112,18 @@ class BandpassApp():
                     plt.margins(x=0,y=0,tight=True)                    
                     self.main_plot.fig.tight_layout()
                 ui.label(zone_str).style("position: absolute; top: 17%; left: 12%; white-space: pre-line; font-size: 90%; font-weight: 500;")
-
                 ui.label('Sampling Rate [Hz]:')
                 ui.slider(min=1000, max=self.base_fs, step=10, value=self.base_fs).props('label-always') \
                     .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-11/12').props('markers :marker-labels="labels"')
         self.slider_ticks(zone_labels)
+
     def slider_ticks(self, zone_labels):
         slope = (435-118)/(8000-2000)
         ofs = 435 - slope*8000
         for key in zone_labels:
             pos = slope*key + ofs 
-            print (key, pos)
             ui.label('|').style(f"position: absolute; top: 636px; left: {pos}px; font-size: 160%; color: gray;")
+
     def update_plot(self, fs):
         ff, Pdb  = self.get_psd(fs)        
         with self.main_plot:
@@ -133,7 +132,6 @@ class BandpassApp():
             self.line2.set( color=clr_dict[check_in_range(fs,self.ranges)] )
             self.axvline1.set_data([fs/2, fs/2], [0, 1])
             self.axvline2.set_data([-fs/2, -fs/2], [0, 1])
-
 
     def run(self,port=5000):
         ui.run(port=port)
