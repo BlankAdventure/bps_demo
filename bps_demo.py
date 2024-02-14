@@ -26,10 +26,10 @@ font = {'family': 'consolas',
 def noise_power(npsd, fs):    
     return np.sqrt(10**(npsd/10)*fs)
 
-def calc_valid_ranges (Fc, Bw):
+def calc_valid_ranges (Fs, Fc, Bw):
     M = 1    
     f_max = 2*(Fc + Bw/2) 
-    ranges = [(f_max, np.inf)]    
+    ranges = [(f_max, Fs)]    
     while f_max/(M+1) >= 2*Bw:
        FsMin = (2*Fc + Bw)/(M+1);
        FsMax = (2*Fc - Bw)/M;
@@ -67,9 +67,10 @@ class BandpassApp():
         self.line2 = None
         self.axvline1 = None
         self.axvline2 = None
+        self.min_fs = 1000
         self.base_fs = self.fu*4
         self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
-        self.ranges = calc_valid_ranges(fc, bw)        
+        self.ranges = calc_valid_ranges(self.base_fs, fc, bw)        
         self.setup()
 
     def get_psd(self, fs, nfft=512, noverlap=384):
@@ -85,13 +86,11 @@ class BandpassApp():
     
     def setup(self):
         zone_str, zone_labels = build_str(self.ranges)
-        ui.add_body_html('<script>' + f"labels = {zone_labels}" + '</script>')
         ff, Pdb  = self.get_psd(self.base_fs)
         with ui.card().classes('bg-yellow-50'):
-            with ui.column().classes('items-center'):
-                ui.separator()
-                ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;')
-                ui.separator()
+            with ui.column().classes('gap-0'): #items-center
+                ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;').classes('w-full text-center')
+                ui.label(f'(fc={self.fc} Hz | BW={self.bw} Hz)').style('font-size: 90%; font-weight: normal;').classes('w-full text-center')
                 self.main_plot = ui.pyplot(figsize=(9, 5))
                 with self.main_plot:
                     self.main_plot.fig.patch.set_alpha(0)                    
@@ -111,18 +110,27 @@ class BandpassApp():
                     plt.ylabel('PSD [dBW/Hz]')
                     plt.margins(x=0,y=0,tight=True)                    
                     self.main_plot.fig.tight_layout()
-                ui.label(zone_str).style("position: absolute; top: 17%; left: 12%; white-space: pre-line; font-size: 90%; font-weight: 500;")
-                ui.label('Sampling Rate [Hz]:')
-                ui.slider(min=1000, max=self.base_fs, step=10, value=self.base_fs).props('label-always') \
-                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-11/12').props('markers :marker-labels="labels"')
-        self.slider_ticks(zone_labels)
+                
+                # Plot annotation of aliasinsg zones
+                ui.label(zone_str).style("position: absolute; top: 13%; left: 12%; white-space: pre-line; font-size: 90%; font-weight: 500;")
 
-    def slider_ticks(self, zone_labels):
-        slope = (435-118)/(8000-2000)
-        ofs = 435 - slope*8000
-        for key in zone_labels:
-            pos = slope*key + ofs 
-            ui.label('|').style(f"position: absolute; top: 636px; left: {pos}px; font-size: 160%; color: gray;")
+                # Setup the slider
+                ui.label('Sampling Rate [Hz]:').classes('text-left italic')
+                ui.slider(min=self.min_fs, max=self.base_fs, step=10, value=self.base_fs).props('label-always') \
+                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-full').props()
+                
+                # Setup the indicator bar
+                with ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;'):
+                    ofs = 0
+                    w = 0
+                    for L,U in reversed(self.ranges):
+                        ofs = ofs + w
+                        w = 100*(U-L)/(self.base_fs - self.min_fs)
+                        p = 100*(L-self.min_fs)/(self.base_fs - self.min_fs)
+                        if w == 0:
+                            w = 0.1
+                        ui.element('div').classes('bg-green-400').style(f'position: relative; left: {p-ofs}%; height: 15px; width: {w}%;')
+
 
     def update_plot(self, fs):
         ff, Pdb  = self.get_psd(fs)        
