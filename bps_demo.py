@@ -39,17 +39,17 @@ def calc_valid_ranges (Fs, Fc, Bw):
 
 def build_str(ranges):
     mystr = '--ALIAS-FREE REGIONS (FS)--\n'
-    label_dict = {}
+    #label_dict = {}
     for idx, entry in enumerate(ranges):
         U,L = entry
         if idx == 0:
             mystr = mystr + f' Oversampled: {U:.0f}+ [Hz]\n'
-            label_dict[int(U)] = 'OS'
+            #label_dict[int(U)] = 'OS'
         else:
             mystr = mystr + f' Zone {idx}: {U:.0f} to {L:.0f} [Hz]\n'
-            label_dict[int(U)] = f'Z{idx}'
-            label_dict[int(L)] = f'Z{idx}'
-    return mystr, label_dict
+            #label_dict[int(U)] = f'Z{idx}'
+            #label_dict[int(L)] = f'Z{idx}'
+    return mystr
 
 
 check_in_range = lambda x,r: any(lower <= x <= upper for (lower, upper) in r)
@@ -57,23 +57,35 @@ clr_dict = {True: 'limegreen', False: 'r'}
 
 class BandpassApp():
     def __init__(self, fc=3500, bw=1000, dur=10, npsd=-60):
-        self.fc = fc # RF carrier freq, Hz
-        self.bw = bw # Signal bandwidth, Hz
         self.dur = dur # seconds
         self.npsd = npsd 
-        self.fu = fc + bw/2
-        self.fl = fc - bw/2
+
         self.line1 = None
         self.line2 = None
         self.axvline1 = None
         self.axvline2 = None
+
+        self.setup1(fc,bw)
+        self.setup()
+        
+    def setup1(self, fc, bw):
+        self.fc = fc # RF carrier freq, Hz
+        self.bw = bw # Signal bandwidth, Hz
+        self.fu = fc + bw/2
+        self.fl = fc - bw/2
         self.min_fs = bw*2
         self.base_fs = self.fu*3
         self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
         self.ranges = calc_valid_ranges(self.base_fs, fc, bw)        
-        print(self.ranges)
-
-        self.setup()
+        
+    def update(self, fc, bw):
+        self.setup1(fc, bw)
+        self.title.set_text(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)')
+        self.regions.set_text(build_str(self.ranges))
+        self.samp_slider.props(f'markers :min={self.min_fs}')
+        self.samp_slider.props(f'markers :max={self.base_fs}')
+        self.update_plot(self.samp_slider.value)
+    
     def get_psd(self, fs, nfft=512, noverlap=384):
         t = np.arange(0, self.dur, 1/fs)  
         y1 = chirp(t, f0=self.fl, f1=self.fc, t1=t[-1], method='hyperbolic')
@@ -86,12 +98,12 @@ class BandpassApp():
         return (ff, Pdb)
     
     def setup(self):
-        zone_str, zone_labels = build_str(self.ranges)
+        zone_str = build_str(self.ranges)
         ff, Pdb  = self.get_psd(self.base_fs)
         with ui.card().classes('bg-yellow-50'):
             with ui.column().classes('gap-0'): #items-center
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;').classes('w-full text-center')
-                ui.label(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)').style('font-size: 90%; font-weight: normal;').classes('w-full text-center')
+                self.title = ui.label(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)').style('font-size: 90%; font-weight: normal;').classes('w-full text-center')
                 self.main_plot = ui.pyplot(figsize=(9, 5))
                 with self.main_plot:
                     self.main_plot.fig.patch.set_alpha(0)                    
@@ -113,15 +125,16 @@ class BandpassApp():
                     self.main_plot.fig.tight_layout()
                 
                 # Plot annotation of aliasinsg zones
-                ui.label(zone_str).classes('bg-gray-50').style("position: absolute; top: 13%; left: 12%; white-space: pre; font-size: 85%; font-weight: 500; border: 1px solid; padding: 3px;")
+                self.regions = ui.label(zone_str).classes('bg-gray-50').style("position: absolute; top: 13%; left: 12%; white-space: pre; font-size: 85%; font-weight: 500; border: 1px solid; padding: 3px;")
 
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
-                ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
+                self.samp_slider = ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
                     .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-full').props()
                 
                 # Setup the indicator bar
-                with ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;'):
+                self.zonebar =  ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;') 
+                with self.zonebar:
                     ofs = 0
                     w = 0
                     for L,U in reversed(self.ranges):
@@ -131,8 +144,20 @@ class BandpassApp():
                         if w == 0:
                             w = 0.1
                         ui.element('div').classes('bg-green-400').style(f'position: relative; left: {p-ofs}%; height: 15px; width: {w}%;')
-
-
+                
+                with ui.row().classes('w-full items-center justify-center'):
+                    ui.label('Carrier Freq:').classes('italic')
+                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 38%;').props('label').on('update:model-value', lambda e: self.update(e.args,self.bw),throttle=0.4,leading_events=False)
+                    ui.label('Bandwidth:').classes('italic')
+                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 38%;').props('label').on('update:model-value', lambda e: self.update(self.fc,e.args),throttle=0.4,leading_events=False)
+                    
+    #def test(self, val):
+    #    if val[0] == 'fc':
+    #        self.setup1(val[1], self.bw)
+    #    elif va[0] == ''    
+        
+    # def build_zonebar(self):
+        
     def update_plot(self, fs):
         ff, Pdb  = self.get_psd(fs)        
         with self.main_plot:
