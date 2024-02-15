@@ -57,18 +57,19 @@ clr_dict = {True: 'limegreen', False: 'r'}
 
 class BandpassApp():
     def __init__(self, fc=3500, bw=1000, dur=10, npsd=-60):
-        self.dur = dur # seconds
+        self.dur = dur 
         self.npsd = npsd 
 
+        # Dynamic plot elements
         self.line1 = None
         self.line2 = None
         self.axvline1 = None
         self.axvline2 = None
 
-        self.setup1(fc,bw)
-        self.setup()
+        self.calc_base_vals(fc,bw)
+        self.setup_ui()
         
-    def setup1(self, fc, bw):
+    def calc_base_vals(self, fc, bw):
         self.fc = fc # RF carrier freq, Hz
         self.bw = bw # Signal bandwidth, Hz
         self.fu = fc + bw/2
@@ -76,22 +77,20 @@ class BandpassApp():
         self.min_fs = bw*2
         self.base_fs = self.fu*3
         self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
-        self.ranges = calc_valid_ranges(self.base_fs, fc, bw)        
+        self.ranges = calc_valid_ranges(self.base_fs, self.fc, self.bw)        
         
-    def update(self, fc, bw):
-        self.setup1(fc, bw)
+    def update_static(self, fc, bw):
+        self.calc_base_vars(fc, bw)
         self.title.set_text(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)')
         self.regions.set_text(build_str(self.ranges))
         self.samp_slider.props(f'markers :min={self.min_fs}')
         self.samp_slider.props(f'markers :max={self.base_fs}')
         self.zonebar.clear()
-        self.build_zonebar()
-        
+        self.build_zonebar()        
         with self.main_plot:
             self.line1.set_xdata(self.base_ff)
             self.line1.set_ydata(self.base_psd)
             plt.xlim(-self.base_fs/2,self.base_fs/2)
-        
         self.update_plot(self.samp_slider.value)
         
     
@@ -106,9 +105,9 @@ class BandpassApp():
         Pdb = fftshift(10*np.log10(np.mean(sxx,axis=1)))
         return (ff, Pdb)
     
-    def setup(self):
-        zone_str = build_str(self.ranges)
-        ff, Pdb  = self.get_psd(self.base_fs)
+    def setup_ui(self):
+        
+        #ff, Pdb  = self.get_psd(self.base_fs)
         with ui.card().classes('bg-yellow-50'):
             with ui.column().classes('gap-0'): #items-center
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;').classes('w-full text-center')
@@ -117,7 +116,7 @@ class BandpassApp():
                 with self.main_plot:
                     self.main_plot.fig.patch.set_alpha(0)                    
                     self.line1, = plt.plot(self.base_ff,self.base_psd, color='k')
-                    self.line2, = plt.plot(ff,Pdb,color=clr_dict[check_in_range(self.fu*2,self.ranges)])          
+                    self.line2, = plt.plot(self.base_ff,self.base_psd, color=clr_dict[check_in_range(self.fu*2,self.ranges)])          
                     self.axvline1 = plt.axvline( self.base_fs/2, linestyle='--', color='grey', alpha=0.60)
                     self.axvline2 = plt.axvline(-self.base_fs/2, linestyle='--', color='grey', alpha=0.60)
                     ax = plt.gca()
@@ -134,7 +133,7 @@ class BandpassApp():
                     self.main_plot.fig.tight_layout()
                 
                 # Plot annotation of aliasinsg zones
-                self.regions = ui.label(zone_str).classes('bg-gray-50').style("position: absolute; top: 13%; left: 12%; white-space: pre; font-size: 85%; font-weight: 500; border: 1px solid; padding: 3px;")
+                self.regions = ui.label(build_str((self.ranges))).classes('bg-gray-50').style("position: absolute; top: 13%; left: 12%; white-space: pre; font-size: 85%; font-weight: 500; border: 1px solid; padding: 3px;")
 
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
@@ -147,14 +146,9 @@ class BandpassApp():
                 
                 with ui.row().classes('w-full items-center justify-center'):
                     ui.label('Carrier Freq:').classes('italic')
-                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 38%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update(e.args,self.bw),throttle=0.4,leading_events=False)
+                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 38%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(e.args,self.bw),throttle=0.4,leading_events=False)
                     ui.label('Bandwidth:').classes('italic')
-                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 38%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update(self.fc,e.args),throttle=0.4,leading_events=False)
-                    
-    #def test(self, val):
-    #    if val[0] == 'fc':
-    #        self.setup1(val[1], self.bw)
-    #    elif va[0] == ''    
+                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 38%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(self.fc,e.args),throttle=0.4,leading_events=False)
         
     def build_zonebar(self):
         with self.zonebar:
