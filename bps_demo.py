@@ -50,7 +50,7 @@ check_in_range = lambda x,r: any(lower <= x <= upper for (lower, upper) in r)
 clr_dict = {True: 'limegreen', False: 'r'}
 
 class BandpassApp():
-    def __init__(self, fc=3500, bw=1000, dur=10, npsd=-60):
+    def __init__(self, fc=3500, bw=1000, dur=5, npsd=-60):
         self.dur = dur 
         self.npsd = npsd 
 
@@ -171,7 +171,7 @@ class BandpassApp():
             self.axvline2.set_data([-fs/2, -fs/2], [0, 1])
 
     def run(self,port=5000):
-        ui.run(port=port)
+        ui.run(port=port, title='Bandpass Sampling Demo')
 
 
 
