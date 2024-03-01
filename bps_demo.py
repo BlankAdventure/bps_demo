@@ -170,7 +170,7 @@ class BandpassApp():
             self.axvline1.set_data([fs/2, fs/2], [0, 1])
             self.axvline2.set_data([-fs/2, -fs/2], [0, 1])
 
-    def run(self,port=5000):
+    def run(self,port=5000,host='0.0.0.0'):
         ui.run(port=port, title='Bandpass Sampling Demo')
 
 
