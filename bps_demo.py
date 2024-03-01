@@ -135,7 +135,7 @@ class BandpassApp():
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
                 self.samp_slider = ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
-                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=1,leading_events=False).classes('w-full').props()
+                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4,leading_events=False).classes('w-full').props()
                 
                 # Setup the indicator bar
                 self.zonebar =  ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;') 
@@ -143,9 +143,9 @@ class BandpassApp():
             
                 with ui.row().classes('w-full items-center justify-left'):
                     ui.label('Carrier Freq [Hz]:').classes('italic')
-                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(e.args,self.bw),throttle=1,leading_events=False)
+                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(e.args,self.bw),throttle=0.4,leading_events=False)
                     ui.label('Bandwidth [Hz]:').classes('italic')
-                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(self.fc,e.args),throttle=1,leading_events=False)
+                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_static(self.fc,e.args),throttle=0.4,leading_events=False)
         
     # Helper function to draw alias region color bar
     def build_zonebar(self):
