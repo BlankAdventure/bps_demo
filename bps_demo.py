@@ -135,7 +135,7 @@ class BandpassApp():
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
                 self.samp_slider = ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
-                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4).classes('w-full').props()
+                    .on('update:model-value', lambda e: self.update_plot(e.args),throttle=0.4,leading_events=False).classes('w-full').props()
                 
                 # Setup the indicator bar
                 self.zonebar =  ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;') 
