@@ -7,8 +7,8 @@ Bandpass sampling demo tool
 # The below two lines were required to deal with a weird issue described here:
 #https://stackoverflow.com/questions/15457786/ctrl-c-crashes-python-after-importing-scipy-stats
 
-import os
-os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
+#import os
+#os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 
 
 import numpy as np
@@ -176,7 +176,7 @@ class BandpassApp():
 
 @ui.page('/main')
 def main():
-    BandpassApp()
+    app = BandpassApp()
 
 
 ui.run(port=5000, on_air=False,title='Bandpass Sampling Demo',host='0.0.0.0')
