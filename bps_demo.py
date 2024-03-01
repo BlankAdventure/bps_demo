@@ -174,7 +174,12 @@ class BandpassApp():
         ui.run(port=port, title='Bandpass Sampling Demo')
 
 
+@ui.page('/main')
+def main():
+    BandpassApp()
 
-app = BandpassApp()
-app.run()            
+
+ui.run(port=5000, on_air=False,title='Bandpass Sampling Demo',host='0.0.0.0')
+#app = BandpassApp()
+#app.run()            
 
