@@ -15,12 +15,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import chirp, spectrogram
 from scipy.fft import fftshift
-from nicegui import ui
+from nicegui import ui, run
 import asyncio
 
 def make_async(function_to_decorate):
     async def async_wrap(*args,**kwargs):
-        await asyncio.to_thread(function_to_decorate, *args)
+        return await asyncio.to_thread(function_to_decorate, *args)
     return async_wrap
 
 
@@ -52,6 +52,17 @@ def build_str(ranges):
             mystr = mystr + f' Zone {idx}: {U:.0f} to {L:.0f} [Hz]\n'
     return mystr
 
+def get_psd(fs, fc, fl, fu, dur, npsd, nfft=512, noverlap=384):
+    t = np.arange(0, dur, 1/fs)  
+    y1 = chirp(t, f0=fl, f1=fc, t1=t[-1], method='hyperbolic')
+    y2 = 0.50*chirp(t, f0=fc, f1=fu, t1=t[-1], method='linear')
+    y = y1 + y2
+    y = y + np.random.randn(np.size(y))*noise_power(npsd, fs)
+    _,_,sxx = spectrogram(y,fs=fs,nperseg=nfft,noverlap=noverlap,nfft=nfft,mode='psd',return_onesided=False,window='hann',detrend=None) 
+    ff = np.linspace(-fs/2, fs/2, nfft)
+    Pdb = fftshift(10*np.log10(np.mean(sxx,axis=1)))
+    return (ff, Pdb)
+
 
 check_in_range = lambda x,r: any(lower <= x <= upper for (lower, upper) in r)
 clr_dict = {True: 'limegreen', False: 'r'}
@@ -60,13 +71,12 @@ class BandpassApp():
     def __init__(self, fc=3500, bw=1000, dur=5, npsd=-60):
         self.dur = dur 
         self.npsd = npsd 
-
+        
         # Dynamic plot elements
         self.line1 = None
         self.line2 = None
         self.axvline1 = None
         self.axvline2 = None
-
         self.calc_base_vals(fc,bw)
         self.setup_ui()
     
@@ -78,40 +88,12 @@ class BandpassApp():
         self.fl = fc - bw/2
         self.min_fs = bw*2
         self.base_fs = self.fu*3
-        self.base_ff, self.base_psd  = self.get_psd(self.base_fs)       
         self.ranges = calc_valid_ranges(self.base_fs, self.fc, self.bw)        
-    
-    # Update static plot elements for new fc or bw values
-    def update_static(self, fc, bw):
-        self.calc_base_vals(fc, bw)
-        self.title.set_text(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)')
-        self.regions.set_text(build_str(self.ranges))
-        self.samp_slider.props(f'markers :min={self.min_fs}')
-        self.samp_slider.props(f'markers :max={self.base_fs}')        
-        if self.samp_slider.value > self.base_fs:
-            self.samp_slider.value = self.base_fs        
-        self.zonebar.clear()
-        self.build_zonebar()        
-        with self.main_plot:
-            self.line1.set_xdata(self.base_ff)
-            self.line1.set_ydata(self.base_psd)
-            plt.xlim(-self.base_fs/2,self.base_fs/2)        
-        self.update_plot(self.samp_slider.value)        
-    
-    def get_psd(self, fs, nfft=512, noverlap=384):
-        t = np.arange(0, self.dur, 1/fs)  
-        y1 = chirp(t, f0=self.fl, f1=self.fc, t1=t[-1], method='hyperbolic')
-        y2 = 0.50*chirp(t, f0=self.fc, f1=self.fu, t1=t[-1], method='linear')
-        y = y1 + y2
-        y = y + np.random.randn(np.size(y))*noise_power(self.npsd, fs)
-        _,_,sxx = spectrogram(y,fs=fs,nperseg=nfft,noverlap=noverlap,nfft=nfft,mode='psd',return_onesided=False,window='hann',detrend=None) 
-        ff = np.linspace(-fs/2, fs/2, nfft)
-        Pdb = fftshift(10*np.log10(np.mean(sxx,axis=1)))
-        return (ff, Pdb)
     
     # Setup the plot and UI elements. This function only called once. Afterwards
     # we only update the plot (update_plot) or the static elements (update_static)
     def setup_ui(self):
+        self.base_ff, self.base_psd  = get_psd( self.base_fs, self.fc, self.fl, self.fu, self.dur, self.npsd)       
         with ui.card().classes('bg-yellow-50'):
             with ui.column().classes('gap-0'): 
                 ui.label('Bandpass Sampling Demo').style('font-size: 120%; font-weight: bold;').classes('w-full text-center')
@@ -142,7 +124,7 @@ class BandpassApp():
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
                 self.samp_slider = ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
-                    .on('update:model-value', lambda e: make_async(self.update_plot(e.args)),throttle=1,leading_events=False).classes('w-full').props()
+                    .on('update:model-value', lambda e: self.update_test(e.args),throttle=1,leading_events=False).classes('w-full').props()
                 
                 # Setup the indicator bar
                 self.zonebar =  ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;') 
@@ -150,9 +132,9 @@ class BandpassApp():
             
                 with ui.row().classes('w-full items-center justify-left'):
                     ui.label('Carrier Freq [Hz]:').classes('italic')
-                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: make_async(self.update_static(e.args,self.bw)),throttle=1,leading_events=False)
+                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_ref(e.args,self.bw),throttle=1,leading_events=False)
                     ui.label('Bandwidth [Hz]:').classes('italic')
-                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: make_async(self.update_static(self.fc,e.args)),throttle=1,leading_events=False)
+                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_ref(self.fc,e.args),throttle=1,leading_events=False)
         
     # Helper function to draw alias region color bar
     def build_zonebar(self):
@@ -167,19 +149,37 @@ class BandpassApp():
                     w = 0.1
                 ui.element('div').classes('bg-green-400').style(f'position: relative; left: {p-ofs}%; height: 15px; width: {w}%;')
     
+    
+    # Update static plot elements for new fc or bw values
+    async def update_ref(self, fc, bw):
+        self.calc_base_vals(fc, bw)
+        self.title.set_text(f'(fc={self.fc:.0f} Hz | BW={self.bw:.0f} Hz | fmax={self.fu:.0f} Hz)')
+        self.regions.set_text(build_str(self.ranges))
+        self.samp_slider.props(f'markers :min={self.min_fs}')
+        self.samp_slider.props(f'markers :max={self.base_fs}')        
+        if self.samp_slider.value > self.base_fs:
+            self.samp_slider.value = self.base_fs        
+        self.zonebar.clear()
+        self.build_zonebar()        
+
+        ff, Pdb  = await make_async( lambda: get_psd( self.base_fs, self.fc, self.fl, self.fu, self.dur, self.npsd)  )()
+
+        with self.main_plot:
+            self.line1.set_xdata(self.base_ff)
+            self.line1.set_ydata(self.base_psd)
+            plt.xlim(-self.base_fs/2,self.base_fs/2)        
+        await self.update_test(self.samp_slider.value)     
+    
+    
     # Redraw the plot when provided a new fs    
-    def update_plot(self, fs):
-        ff, Pdb  = self.get_psd(fs)        
+    async def update_test(self, fs):
+        ff, Pdb  = await make_async( lambda: get_psd( fs, self.fc, self.fl, self.fu, self.dur, self.npsd)  )()
         with self.main_plot:
             self.line2.set_xdata(ff)
             self.line2.set_ydata(Pdb)
             self.line2.set( color=clr_dict[check_in_range(fs,self.ranges)] )
             self.axvline1.set_data([fs/2, fs/2], [0, 1])
             self.axvline2.set_data([-fs/2, -fs/2], [0, 1])
-
-    def run(self,port=5000,host='0.0.0.0'):
-        ui.run(port=port, title='Bandpass Sampling Demo')
-
 
 @ui.page('/main')
 def main():
