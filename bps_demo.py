@@ -18,6 +18,12 @@ from scipy.fft import fftshift
 from nicegui import ui, run
 import asyncio
 
+async def worker(name, queue):
+    while True:
+        res = await queue.get()
+        await res()
+        queue.task_done()
+
 def make_async(function_to_decorate):
     async def async_wrap(*args,**kwargs):
         return await asyncio.to_thread(function_to_decorate, *args)
@@ -69,6 +75,7 @@ clr_dict = {True: 'limegreen', False: 'r'}
 
 class BandpassApp():
     def __init__(self, fc=3500, bw=1000, dur=5, npsd=-60):
+        self.queue = asyncio.LifoQueue(maxsize=1)   
         self.dur = dur 
         self.npsd = npsd 
         
@@ -79,7 +86,7 @@ class BandpassApp():
         self.axvline2 = None
         self.calc_base_vals(fc,bw)
         self.setup_ui()
-    
+        asyncio.create_task(worker('name', self.queue))
     # Calculates basic simulation parameters
     def calc_base_vals(self, fc, bw):
         self.fc = fc # RF carrier freq, Hz
@@ -124,7 +131,7 @@ class BandpassApp():
                 # Setup the slider
                 ui.label('Sampling Rate [Hz]:').classes('text-left italic')
                 self.samp_slider = ui.slider(min=self.min_fs, max=self.base_fs, step=5, value=self.base_fs).props('label-always') \
-                    .on('update:model-value', lambda e: self.update_test(e.args),throttle=1,leading_events=False).classes('w-full').props()
+                    .on('update:model-value', lambda e: self.update_meth(lambda: self.update_test(e.args)),throttle=0.5,leading_events=False).classes('w-full').props()
                 
                 # Setup the indicator bar
                 self.zonebar =  ui.row().classes('w-full gap-0 bg-red-300').style('position: relative; top: -10px;') 
@@ -132,9 +139,9 @@ class BandpassApp():
             
                 with ui.row().classes('w-full items-center justify-left'):
                     ui.label('Carrier Freq [Hz]:').classes('italic')
-                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_ref(e.args,self.bw),throttle=1,leading_events=False)
+                    ui.slider(min=2500,max=4500,step=50,value=self.fc).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_meth(lambda: self.update_ref(e.args,self.bw)),throttle=0.5,leading_events=False)
                     ui.label('Bandwidth [Hz]:').classes('italic')
-                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_ref(self.fc,e.args),throttle=1,leading_events=False)
+                    ui.slider(min=500,max=1500,step=50,value=self.bw).style('width: 35%;').props('label-always switch-label-side').on('update:model-value', lambda e: self.update_meth(lambda: self.update_ref(self.fc,e.args)),throttle=0.5,leading_events=False)
         
     # Helper function to draw alias region color bar
     def build_zonebar(self):
@@ -180,6 +187,12 @@ class BandpassApp():
             self.line2.set( color=clr_dict[check_in_range(fs,self.ranges)] )
             self.axvline1.set_data([fs/2, fs/2], [0, 1])
             self.axvline2.set_data([-fs/2, -fs/2], [0, 1])
+            
+    async def update_meth(self, func):
+        try: 
+            self.queue.put_nowait( func ) 
+        except:
+            print('q full')
 
 @ui.page('/main')
 def main():
