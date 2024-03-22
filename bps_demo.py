@@ -7,8 +7,8 @@ Bandpass sampling demo tool
 # The below two lines were required to deal with a weird issue described here:
 #https://stackoverflow.com/questions/15457786/ctrl-c-crashes-python-after-importing-scipy-stats
 
-#import os
-#os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
+import os
+os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 
 
 import numpy as np
@@ -242,18 +242,14 @@ def main():
         zone_bar.clear()
         draw_zonebar()        
 
-        #ff, Pdb  = await make_async( lambda: get_psd( self.base_fs, self.fc, self.fl, self.fu, self.dur, self.npsd)  )()
-
         with main_plot:
             line1.set_xdata(psd.ref_ff)
             line1.set_ydata(psd.ref_psd)
             plt.xlim(-psd.base_fs/2,psd.base_fs/2)        
         
         update_test_psd(samp_slider.value)
-        #await self.update_test(self.samp_slider.value)     
 
     def update_test_psd(new_fs):
-        #ff, Pdb  = await make_async( lambda: get_psd( fs, self.fc, self.fl, self.fu, self.dur, self.npsd)  )()
         psd.update_test_psd(new_fs)
         with main_plot:
             line2.set_xdata(psd.test_ff)
