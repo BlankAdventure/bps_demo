@@ -231,8 +231,8 @@ def main():
                     w = 0.1
                 ui.element('div').classes('bg-green-400').style(f'position: relative; left: {p-ofs}%; height: 15px; width: {w}%;')    
     
-    def update_ref_psd(new_fc, new_bw):
-        psd.update_ref_psd(new_fc, new_bw)
+    async def update_ref_psd(new_fc, new_bw):
+        await make_async( lambda: psd.update_ref_psd(new_fc, new_bw))()
         title.set_text(f'(fc={psd.fc:.0f} Hz | BW={psd.bw:.0f} Hz | fmax={psd.fu:.0f} Hz)')
         regions.set_text(build_str(psd.ranges))
         samp_slider.props(f'markers :min={psd.min_fs}')
@@ -240,17 +240,17 @@ def main():
         if samp_slider.value > psd.base_fs:
             samp_slider.value = psd.base_fs        
         zone_bar.clear()
-        draw_zonebar()        
+        await make_async(draw_zonebar)()
 
         with main_plot:
             line1.set_xdata(psd.ref_ff)
             line1.set_ydata(psd.ref_psd)
             plt.xlim(-psd.base_fs/2,psd.base_fs/2)        
         
-        update_test_psd(samp_slider.value)
+        await update_test_psd(samp_slider.value)
 
-    def update_test_psd(new_fs):
-        psd.update_test_psd(new_fs)
+    async def update_test_psd(new_fs):
+        await make_async( lambda: psd.update_test_psd(new_fs))()
         with main_plot:
             line2.set_xdata(psd.test_ff)
             line2.set_ydata(psd.test_psd)
