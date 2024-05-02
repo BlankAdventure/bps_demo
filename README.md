@@ -1,7 +1,11 @@
 # bps_demo
 A small app to visually demonstrate the concept of bandpass sampling and alias regions. 
 
+[Click here for live version](http://www.blankadventure.com/bps)
+
+
 ![image](https://github.com/BlankAdventure/bps_demo/assets/24900496/f6b9cf0b-fdc7-4383-8484-b2dc91844202)
+
 
 
 The default settings (shown above) depict the two-sided power spectrum for a real signal with an "RF" carrier of 3500 Hz and a lower and upper sideband occupying a bandwidth of 1000 Hz. In this case the maximum frequency is 4000 Hz and we start with a sampling rate of 12000 Hz, yielding a Nyquist frequency of 6000 Hz. Thus we are initially oversampling the signal.
